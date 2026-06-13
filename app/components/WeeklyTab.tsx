@@ -1,71 +1,115 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { useMemo, useState, useEffect } from 'react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LabelList } from 'recharts'
 import type { SnapshotRow } from '../types'
-import { barColor, tooltipStyle, axisTick } from '../lib/utils'
-
-const WEEKS = [
-  { label: 'Week 1', start: 1, end: 7 },
-  { label: 'Week 2', start: 8, end: 14 },
-  { label: 'Week 3', start: 15, end: 21 },
-  { label: 'Week 4', start: 22, end: 31 },
-]
+import { roundToHour, barColor, tooltipStyle, axisTick } from '../lib/utils'
 
 interface WeeklyTabProps {
   memberRows: SnapshotRow[]
 }
 
+function fmtShort(d: Date) {
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+
 export function WeeklyTab({ memberRows }: WeeklyTabProps) {
-  const months = useMemo(() => {
-    const set = new Set<string>()
-    for (const r of memberRows) set.add(r.recorded_at.slice(0, 7))
-    return Array.from(set).sort()
+  const cycles = useMemo(() => {
+    const now = new Date()
+    const WEEK_MS = 7 * 24 * 3600 * 1000
+
+    // Build cycle map from actual data
+    const byResetKey = new Map<string, SnapshotRow[]>()
+    for (const r of memberRows) {
+      const key = roundToHour(r.seven_day_resets_at)
+      if (!byResetKey.has(key)) byResetKey.set(key, [])
+      byResetKey.get(key)!.push(r)
+    }
+
+    // Find the latest reset date as anchor for the current week
+    const latestRow = memberRows.reduce<SnapshotRow | null>(
+      (a, b) => (!a || b.recorded_at > a.recorded_at ? b : a), null
+    )
+    if (!latestRow) return []
+
+    const anchorReset = new Date(roundToHour(latestRow.seven_day_resets_at))
+
+    // Generate 4 week slots ending at anchor (oldest → newest)
+    const slots = Array.from({ length: 4 }, (_, i) => {
+      const resetDate = new Date(anchorReset.getTime() - (3 - i) * WEEK_MS)
+      const startDate = new Date(resetDate.getTime() - WEEK_MS)
+      const key = resetDate.toISOString()
+      const rows = byResetKey.get(key) ?? []
+      const latest = rows.length
+        ? rows.reduce((a, b) => a.recorded_at > b.recorded_at ? a : b)
+        : null
+      const peak = latest?.seven_day_utilization ?? 0
+      const isCurrent = resetDate > now
+      return {
+        label: fmtShort(startDate),
+        tooltip: `${fmtShort(startDate)} – ${fmtShort(resetDate)}`,
+        peak,
+        fill: peak === 0 ? '#3f3f46' : isCurrent ? '#60a5fa' : barColor(peak),
+        currentLabel: isCurrent ? 'current' : '',
+        resetDate,
+      }
+    })
+
+    // Append any older cycles not covered by the 4-slot window
+    const slotKeys = new Set(slots.map(s => roundToHour(s.resetDate.toISOString())))
+    const extra = Array.from(byResetKey.entries())
+      .filter(([key]) => !slotKeys.has(key))
+      .map(([key, rows]) => {
+        const resetDate = new Date(key)
+        const startDate = new Date(resetDate.getTime() - WEEK_MS)
+        const latest = rows.reduce((a, b) => a.recorded_at > b.recorded_at ? a : b)
+        const peak = latest.seven_day_utilization
+        const isCurrent = resetDate > now
+        return {
+          label: fmtShort(startDate),
+          tooltip: `${fmtShort(startDate)} – ${fmtShort(resetDate)}`,
+          peak,
+          fill: peak === 0 ? '#3f3f46' : isCurrent ? '#60a5fa' : barColor(peak),
+          currentLabel: isCurrent ? 'current' : '',
+          resetDate,
+        }
+      })
+
+    return [...extra, ...slots].sort((a, b) => a.resetDate.getTime() - b.resetDate.getTime())
   }, [memberRows])
 
-  const [selectedMonth, setSelectedMonth] = useState(() => months[months.length - 1] ?? '')
+  const [displayData, setDisplayData] = useState<typeof cycles>([])
 
-  const chartData = useMemo(() => {
-    if (!selectedMonth) return []
-    const monthRows = memberRows.filter(r => r.recorded_at.startsWith(selectedMonth))
-    return WEEKS.map(w => {
-      const weekRows = monthRows.filter(r => {
-        const day = parseInt(r.recorded_at.slice(8, 10), 10)
-        return day >= w.start && day <= w.end
-      })
-      const peak = weekRows.length > 0 ? Math.max(...weekRows.map(r => r.seven_day_utilization)) : 0
-      return { label: w.label, peak, fill: weekRows.length > 0 ? barColor(peak) : '#3f3f46' }
-    })
-  }, [memberRows, selectedMonth])
+  useEffect(() => {
+    setDisplayData([])
+    const timers = cycles.map((item, i) =>
+      setTimeout(() => setDisplayData(prev => [...prev, item]), i * 150)
+    )
+    return () => timers.forEach(clearTimeout)
+  }, [cycles])
 
-  if (months.length === 0) {
+  if (cycles.length === 0) {
     return <p className="text-zinc-500 text-sm py-8 text-center">No data available.</p>
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <select
-        value={selectedMonth}
-        onChange={e => setSelectedMonth(e.target.value)}
-        className="w-fit bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-zinc-500"
-      >
-        {months.map(m => (
-          <option key={m} value={m}>
-            {new Date(`${m}-01`).toLocaleDateString([], { month: 'long', year: 'numeric' })}
-          </option>
-        ))}
-      </select>
-      <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 4, left: -16 }}>
-          <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} />
-          <YAxis domain={[0, 100]} tick={axisTick} axisLine={false} tickLine={false} />
-          <Tooltip
-            {...tooltipStyle}
-            formatter={(val) => [`${val ?? 0}%`, 'Peak 7-day']}
+    <ResponsiveContainer width="100%" height={240}>
+      <BarChart data={displayData} margin={{ top: 20, right: 8, bottom: 4, left: -16 }}>
+        <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} />
+        <YAxis domain={[0, 100]} tick={axisTick} axisLine={false} tickLine={false} />
+        <Tooltip
+          {...tooltipStyle}
+          labelFormatter={(_, payload) => payload?.[0]?.payload?.tooltip ?? ''}
+          formatter={(val) => [`${val ?? 0}%`, 'Peak 7-day']}
+        />
+        <Bar dataKey="peak" radius={[3, 3, 0, 0]} isAnimationActive animationDuration={400}>
+          <LabelList
+            dataKey="currentLabel"
+            position="top"
+            style={{ fill: '#60a5fa', fontSize: 10, fontWeight: 600 }}
           />
-          <Bar dataKey="peak" radius={[3, 3, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   )
 }

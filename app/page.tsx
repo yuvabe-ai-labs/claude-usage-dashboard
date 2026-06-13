@@ -7,7 +7,6 @@ import { Header } from './components/Header'
 import { StatCards } from './components/StatCards'
 import { MemberSidebar, getLatestByMember } from './components/MemberSidebar'
 import { MemberDetailCard } from './components/MemberDetailCard'
-import { ComparisonChart } from './components/ComparisonChart'
 
 async function fetchHistory(): Promise<SnapshotRow[]> {
   const res = await fetch('/api/usage-history')
@@ -59,12 +58,8 @@ export default function DashboardPage() {
   )
 
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
-  const [view, setView] = useState<'member' | 'compare'>('member')
   const activeMemberId = selectedMemberId ?? members[0]?.id ?? null
   const activeProfile = members.find(m => m.id === activeMemberId) ?? null
-
-  const atSessionLimit = members.filter(m => m.sessionPct >= 90).length
-  const atWeeklyLimit = members.filter(m => m.weeklyPct >= 90).length
 
   const memberRows = useMemo(
     () => history.filter(r => r.member_id === activeMemberId),
@@ -94,43 +89,19 @@ export default function DashboardPage() {
           onSelect={setSelectedMemberId}
         />
         <main className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
-          <div className="flex gap-1 self-start bg-zinc-800 border border-zinc-700 rounded-lg p-1">
-            {(['member', 'compare'] as const).map(v => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  view === v
-                    ? 'bg-zinc-600 text-zinc-100'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                {v === 'member' ? 'Member Detail' : 'Compare All'}
-              </button>
-            ))}
-          </div>
-
-          {view === 'member' ? (
-            activeProfile ? (
-              <MemberDetailCard
-                memberName={activeProfile.name}
-                memberEmail={activeProfile.email}
-                latestSnapshot={latestSnapshot}
-                memberRows={memberRows}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-zinc-600 text-sm">
-                  {isFetching ? 'Loading…' : 'No data available.'}
-                </p>
-              </div>
-            )
-          ) : (
-            <ComparisonChart
-              members={members}
-              latestByMember={latestByMember}
-              history={history}
+          {activeProfile ? (
+            <MemberDetailCard
+              memberName={activeProfile.name}
+              memberEmail={activeProfile.email}
+              latestSnapshot={latestSnapshot}
+              memberRows={memberRows}
             />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-zinc-600 text-sm">
+                {isFetching ? 'Loading…' : 'No data available.'}
+              </p>
+            </div>
           )}
         </main>
       </div>

@@ -5,9 +5,8 @@ import type { SnapshotRow } from '../types'
 import { getSessions } from '../lib/utils'
 import { DailyTab } from './DailyTab'
 import { WeeklyTab } from './WeeklyTab'
-import { MonthlyTab } from './MonthlyTab'
 
-type Tab = 'daily' | 'weekly' | 'monthly'
+type Tab = 'daily' | 'weekly'
 
 interface MemberDetailCardProps {
   memberName: string
@@ -36,11 +35,10 @@ function UsagePill({ label, pct }: { label: string; pct: number }) {
 const TABS: { key: Tab; label: string }[] = [
   { key: 'daily', label: 'Daily' },
   { key: 'weekly', label: 'Weekly' },
-  { key: 'monthly', label: 'Monthly' },
 ]
 
 export function MemberDetailCard({ memberName, memberEmail, latestSnapshot, memberRows }: MemberDetailCardProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('daily')
+  const [activeTab, setActiveTab] = useState<Tab>('weekly')
   const sessions = getSessions(memberRows)
 
   return (
@@ -84,7 +82,6 @@ export function MemberDetailCard({ memberName, memberEmail, latestSnapshot, memb
       <div className="min-h-70">
         {activeTab === 'daily' && <DailyTab sessions={sessions} />}
         {activeTab === 'weekly' && <WeeklyTab memberRows={memberRows} />}
-        {activeTab === 'monthly' && <MonthlyTab memberRows={memberRows} />}
       </div>
     </div>
   )

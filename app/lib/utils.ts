@@ -5,6 +5,11 @@ export function roundTo5Min(iso: string): string {
   return new Date(Math.round(ms / (5 * 60 * 1000)) * (5 * 60 * 1000)).toISOString()
 }
 
+export function roundToHour(iso: string): string {
+  const ms = new Date(iso).getTime()
+  return new Date(Math.round(ms / (60 * 60 * 1000)) * (60 * 60 * 1000)).toISOString()
+}
+
 export function getSessions(rows: SnapshotRow[]): Session[] {
   const byKey = new Map<string, SnapshotRow[]>()
   for (const r of rows) {
