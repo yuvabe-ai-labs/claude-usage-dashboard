@@ -4,9 +4,10 @@ import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { SnapshotRow } from './types'
 import { Header } from './components/Header'
-import { StatCards } from './components/StatCards'
 import { MemberSidebar, getLatestByMember } from './components/MemberSidebar'
 import { MemberDetailCard } from './components/MemberDetailCard'
+import { ComparisonChart } from './components/ComparisonChart'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 async function fetchHistory(): Promise<SnapshotRow[]> {
   const res = await fetch('/api/usage-history')
@@ -31,7 +32,6 @@ export default function DashboardPage() {
     queryFn: fetchMembers,
   })
 
-  // keyed by member_id
   const profileById = useMemo(() => {
     const map = new Map<string, { name: string; email: string | null }>()
     for (const m of memberProfiles) map.set(m.id, { name: m.name, email: m.email })
@@ -75,34 +75,38 @@ export default function DashboardPage() {
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
       />
-      {/* <div className="px-6 py-4 border-b border-zinc-800 shrink-0">
-        <StatCards
-          totalMembers={members.length}
-          atSessionLimit={atSessionLimit}
-          atWeeklyLimit={atWeeklyLimit}
-        />
-      </div> */}
       <div className="flex flex-1 overflow-hidden">
         <MemberSidebar
           members={members}
           selectedMemberId={activeMemberId}
           onSelect={setSelectedMemberId}
         />
-        <main className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
-          {activeProfile ? (
-            <MemberDetailCard
-              memberName={activeProfile.name}
-              memberEmail={activeProfile.email}
-              latestSnapshot={latestSnapshot}
-              memberRows={memberRows}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-zinc-600 text-sm">
-                {isFetching ? 'Loading…' : 'No data available.'}
-              </p>
-            </div>
-          )}
+        <main className="flex-1 overflow-y-auto p-5">
+          <Tabs defaultValue="member" className="flex flex-col gap-4">
+            <TabsList className="w-fit">
+              <TabsTrigger value="member">Member Detail</TabsTrigger>
+              <TabsTrigger value="compare">Compare All</TabsTrigger>
+            </TabsList>
+            <TabsContent value="member">
+              {activeProfile ? (
+                <MemberDetailCard
+                  memberName={activeProfile.name}
+                  memberEmail={activeProfile.email}
+                  latestSnapshot={latestSnapshot}
+                  memberRows={memberRows}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-muted-foreground text-sm">
+                    {isFetching ? 'Loading…' : 'No data available.'}
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+            <TabsContent value="compare">
+              <ComparisonChart members={members} latestByMember={latestByMember} />
+            </TabsContent>
+          </Tabs>
         </main>
       </div>
     </div>

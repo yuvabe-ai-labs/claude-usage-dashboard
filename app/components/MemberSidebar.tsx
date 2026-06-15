@@ -2,6 +2,8 @@
 
 import type { SnapshotRow } from '../types'
 import { MEMBER_COLORS } from '../lib/utils'
+import { Progress } from '@/components/ui/progress'
+import { cn } from '@/lib/utils'
 
 interface MemberItem {
   id: string
@@ -17,21 +19,18 @@ interface MemberSidebarProps {
   onSelect: (id: string) => void
 }
 
-function UsageBar({ pct }: { pct: number }) {
-  const color =
-    pct >= 90 ? 'bg-red-500' : pct >= 75 ? 'bg-orange-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-green-500'
-  return (
-    <div className="h-1 w-full bg-zinc-700 rounded-full overflow-hidden">
-      <div className={`h-full ${color} rounded-full`} style={{ width: `${Math.min(pct, 100)}%` }} />
-    </div>
-  )
+function usageColor(pct: number) {
+  if (pct >= 90) return 'bg-red-500'
+  if (pct >= 75) return 'bg-orange-500'
+  if (pct >= 50) return 'bg-yellow-500'
+  return 'bg-green-500'
 }
 
 export function MemberSidebar({ members, selectedMemberId, onSelect }: MemberSidebarProps) {
   return (
-    <aside className="w-[210px] shrink-0 border-r border-zinc-800 overflow-y-auto bg-zinc-900">
-      <div className="px-3 py-3">
-        <p className="text-[10px] uppercase tracking-widest text-zinc-600 font-medium mb-2 px-1">
+    <aside className="w-55 shrink-0 border-r border-border overflow-y-auto bg-card">
+      <div className="px-3 py-4">
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-3 px-2">
           Members
         </p>
         <ul className="flex flex-col gap-1">
@@ -42,31 +41,38 @@ export function MemberSidebar({ members, selectedMemberId, onSelect }: MemberSid
               <li key={m.id}>
                 <button
                   onClick={() => onSelect(m.id)}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors ${
+                  className={cn(
+                    'w-full text-left px-3 py-3 rounded-lg transition-colors',
                     isSelected
-                      ? 'bg-zinc-700 text-zinc-100'
-                      : 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200'
-                  }`}
+                      ? 'bg-accent text-accent-foreground'
+                      : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
+                  )}
                 >
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ background: color }}
-                    />
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
                     <span className="text-sm font-medium truncate">{m.name}</span>
                   </div>
-                  <p className="text-[10px] text-zinc-600 pl-4 mb-1.5">Current Usage</p>
-                  <div className="flex flex-col gap-1 pl-4">
+                  <div className="flex flex-col gap-1.5 pl-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-zinc-500">5h session</span>
-                      <span className="text-[10px] text-zinc-400">{m.sessionPct}%</span>
+                      <span className="text-[10px] text-muted-foreground">5h session</span>
+                      <span className="text-[10px] font-medium">{m.sessionPct}%</span>
                     </div>
-                    <UsageBar pct={m.sessionPct} />
+                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={cn('h-full rounded-full transition-all', usageColor(m.sessionPct))}
+                        style={{ width: `${Math.min(m.sessionPct, 100)}%` }}
+                      />
+                    </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-zinc-500">7d weekly</span>
-                      <span className="text-[10px] text-zinc-400">{m.weeklyPct}%</span>
+                      <span className="text-[10px] text-muted-foreground">7d weekly</span>
+                      <span className="text-[10px] font-medium">{m.weeklyPct}%</span>
                     </div>
-                    <UsageBar pct={m.weeklyPct} />
+                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={cn('h-full rounded-full transition-all', usageColor(m.weeklyPct))}
+                        style={{ width: `${Math.min(m.weeklyPct, 100)}%` }}
+                      />
+                    </div>
                   </div>
                 </button>
               </li>
