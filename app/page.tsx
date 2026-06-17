@@ -1,13 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { SnapshotRow } from './types'
 import { Header } from './components/Header'
-import { MemberSidebar, getLatestByMember } from './components/MemberSidebar'
-import { MemberDetailCard } from './components/MemberDetailCard'
-import { ComparisonChart } from './components/ComparisonChart'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { WeeklyTable } from './components/WeeklyTable'
+import { getLatestByMember } from './components/MemberSidebar'
 
 async function fetchHistory(): Promise<SnapshotRow[]> {
   const res = await fetch('/api/usage-history')
@@ -43,30 +41,14 @@ export default function DashboardPage() {
   const members = useMemo(
     () =>
       Array.from(latestByMember.entries())
-        .map(([id, snap]) => {
-          const profile = profileById.get(id)
-          return {
-            id,
-            name: profile?.name ?? '',
-            email: profile?.email ?? null,
-            sessionPct: snap.five_hour_utilization,
-            weeklyPct: snap.seven_day_utilization,
-          }
+        .filter(([id]) => profileById.has(id))
+        .map(([id]) => {
+          const profile = profileById.get(id)!
+          return { id, name: profile.name, email: profile.email }
         })
         .sort((a, b) => a.name.localeCompare(b.name)),
     [latestByMember, profileById]
   )
-
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
-  const activeMemberId = selectedMemberId ?? members[0]?.id ?? null
-  const activeProfile = members.find(m => m.id === activeMemberId) ?? null
-
-  const memberRows = useMemo(
-    () => history.filter(r => r.member_id === activeMemberId),
-    [history, activeMemberId]
-  )
-
-  const latestSnapshot = activeMemberId ? (latestByMember.get(activeMemberId) ?? null) : null
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -75,40 +57,13 @@ export default function DashboardPage() {
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
       />
-      <div className="flex flex-1 overflow-hidden">
-        <MemberSidebar
-          members={members}
-          selectedMemberId={activeMemberId}
-          onSelect={setSelectedMemberId}
-        />
-        <main className="flex-1 overflow-y-auto p-5">
-          <Tabs defaultValue="member" className="flex flex-col gap-4">
-            <TabsList className="w-fit">
-              <TabsTrigger value="member">Member Detail</TabsTrigger>
-              <TabsTrigger value="compare">Compare All</TabsTrigger>
-            </TabsList>
-            <TabsContent value="member">
-              {activeProfile ? (
-                <MemberDetailCard
-                  memberName={activeProfile.name}
-                  memberEmail={activeProfile.email}
-                  latestSnapshot={latestSnapshot}
-                  memberRows={memberRows}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground text-sm">
-                    {isFetching ? 'Loading…' : 'No data available.'}
-                  </p>
-                </div>
-              )}
-            </TabsContent>
-            <TabsContent value="compare">
-              <ComparisonChart members={members} latestByMember={latestByMember} />
-            </TabsContent>
-          </Tabs>
-        </main>
-      </div>
+      <main className="flex-1 overflow-y-auto p-6">
+        {isFetching && members.length === 0 ? (
+          <p className="text-muted-foreground text-sm">Loading…</p>
+        ) : (
+          <WeeklyTable members={members} history={history} />
+        )}
+      </main>
     </div>
   )
 }

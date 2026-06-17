@@ -18,12 +18,15 @@ export function getSessions(rows: SnapshotRow[]): Session[] {
     byKey.get(key)!.push(r)
   }
   return Array.from(byKey.entries())
-    .map(([k, snaps]) => ({
-      resetsAt: k,
-      start: new Date(new Date(k).getTime() - 5 * 3600 * 1000),
-      end: new Date(k),
-      peak: Math.max(...snaps.map(s => s.five_hour_utilization)),
-    }))
+    .map(([k, snaps]) => {
+      const latest = snaps.reduce((a, b) => a.recorded_at > b.recorded_at ? a : b)
+      return {
+        resetsAt: k,
+        start: new Date(new Date(k).getTime() - 5 * 3600 * 1000),
+        end: new Date(k),
+        peak: latest.five_hour_utilization,
+      }
+    })
     .sort((a, b) => a.end.getTime() - b.end.getTime())
 }
 
